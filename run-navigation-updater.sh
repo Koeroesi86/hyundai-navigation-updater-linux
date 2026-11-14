@@ -64,6 +64,27 @@ DESKTOP
 
 run() { if [ "${DRY_RUN:-0}" = 1 ]; then echo "[dry-run] $*"; else "$@"; fi; }
 
+# Wine/Proton does not always expose mounted USB sticks as drive letters, so the
+# updater cannot find them. Link every mounted removable drive (the usual
+# desktop auto-mount locations) to a free letter from e: upward before launching.
+mapUsbDrives() {
+  local dos="$PREFIX/pfx/dosdevices"
+  local letters=(e f g h i j k l m n o p q r s t u v w x y)
+  local stale mount letter
+  [ -d "$dos" ] || return 0
+  # Remove links made by an earlier launch (they point into the mount directories).
+  find "$dos" -maxdepth 1 -type l -name '[e-y]:' \( -lname '/run/media/*' -o -lname '/media/*' \) |
+    while read -r stale; do run rm "$stale"; done
+  for mount in /run/media/"$USER"/* /media/"$USER"/*; do
+    [ -d "$mount" ] || continue
+    while [ -e "$dos/${letters[0]}:" ] || [ -L "$dos/${letters[0]}:" ]; do letters=("${letters[@]:1}"); done
+    letter="${letters[0]}"
+    run ln -s "$mount" "$dos/$letter:"
+    echo "USB: $mount -> $letter:"
+    letters=("${letters[@]:1}")
+  done
+}
+
 findSteamProton() {
   local steamRoot
   for steamRoot in "$HOME/.local/share/Steam" "$HOME/.steam/steam" "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam"; do
@@ -136,6 +157,7 @@ fi
 export STEAM_COMPAT_DATA_PATH="$PREFIX"
 export STEAM_COMPAT_CLIENT_INSTALL_PATH="$CLIENT_PATH"
 run mkdir -p "$PREFIX"
+mapUsbDrives
 echo "Proton: $PROTON"
 echo "Target: $TARGET"
 run exec "$PROTON" run "$TARGET" "${ARGS[@]}"

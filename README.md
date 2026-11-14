@@ -53,8 +53,12 @@ needed) into `~/.local/share/hyundai-nau-proton`.
 3. Put the stick back in the car, Ready mode (or charging), run the update. Don't interrupt.
 
 ## Troubleshooting
-- Updater can't see the stick: add a Wine drive symlink, e.g.
-  `ln -s /run/media/$USER/HYUNDAI ~/.local/share/hyundai-nau-prefix/pfx/dosdevices/e:`
+- Updater can't see the stick: on every launch the script links each mounted
+  removable drive (`/run/media/$USER/*`, `/media/$USER/*`) to a free Wine drive letter
+  from `e:` upward and prints e.g. `USB: /run/media/you/HYUNDAI -> e:`. Mount the stick
+  **before** starting the updater; if you plug it in later, restart the updater. Other
+  mount locations need a manual link:
+  `ln -s /mnt/stick ~/.local/share/hyundai-nau-prefix/pfx/dosdevices/e:`
 - Window problems: try another Proton version by editing the script.
 - Reset everything: delete the prefix folder and run the script again.
 - Prepare a stick (erases it!): `lsblk`, then `sudo mkfs.vfat -F 32 -n HYUNDAI /dev/sdX1`
