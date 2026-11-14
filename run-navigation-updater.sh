@@ -116,7 +116,8 @@ installStandaloneProton() {
   if ! command -v steamcmd >/dev/null && [ ! -x "$STEAMCMD_DIR/steamcmd.sh" ]; then
     echo "Downloading steamcmd from Valve..."
     run mkdir -p "$STEAMCMD_DIR"
-    run bash -c "curl -fL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar -xz -C '$STEAMCMD_DIR'"
+    run bash -c 'set -o pipefail; curl -fL --proto "=https" --tlsv1.2 "$1" | tar -xz -C "$2"' _ \
+      "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" "$STEAMCMD_DIR"
   fi
   fetch="$(command -v steamcmd || echo "$STEAMCMD_DIR/steamcmd.sh")"
   echo "Downloading Proton Experimental (large download)..."
@@ -137,6 +138,17 @@ if [ "${1:-}" = "--install-desktop" ]; then
   exit 0
 fi
 
+# Only browser links of the registered schemes may reach the app (no flags or paths).
+validateLinks() {
+  local pattern arg
+  pattern="^($(IFS='|'; echo "${SCHEMES[*]}" | sed 's/\./\\./g')):"
+  for arg in "$@"; do
+    [[ "$arg" =~ $pattern ]] || { echo "Refusing argument that is not a Navigation Updater link: $arg" >&2; exit 1; }
+  done
+}
+
+validateLinks "$@"
+
 if steamRoot="$(findSteamProton)"; then
   PROTON="$steamRoot/steamapps/common/Proton - Experimental/proton"
   CLIENT_PATH="$steamRoot"
@@ -148,7 +160,7 @@ fi
 
 downloadInstaller() {
   echo "Downloading Navigation Updater installer (about 205 MB)..."
-  run curl -fL --retry 3 -o "$INSTALLER.part" "$INSTALLER_URL"
+  run curl -fL --proto '=https' --tlsv1.2 --retry 3 -o "$INSTALLER.part" "$INSTALLER_URL"
   [ "${DRY_RUN:-0}" = 1 ] && return 0
   echo "$INSTALLER_SHA256  $INSTALLER.part" | sha256sum -c - && { mv "$INSTALLER.part" "$INSTALLER"; return 0; }
   echo "Checksum mismatch. Hyundai may have published a new installer version." >&2
@@ -158,12 +170,21 @@ downloadInstaller() {
   exit 1
 }
 
+# A leftover installer file is run only if it still matches the pinned checksum.
+verifyExistingInstaller() {
+  echo "$INSTALLER_SHA256  $INSTALLER" | sha256sum -c --quiet - && return 0
+  echo "$INSTALLER does not match the pinned SHA-256." >&2
+  [ "${SKIP_CHECKSUM:-0}" = 1 ] && return 0
+  echo "Delete it to download a fresh copy, or set SKIP_CHECKSUM=1 to run it anyway." >&2
+  exit 1
+}
+
 # First run downloads (if needed) and installs; later runs launch the installed app.
 # Arguments (a browser link) are only passed to the app, never to the installer.
 TARGET="$APP"
 ARGS=("$@")
 if [ ! -f "$APP" ]; then
-  [ -f "$INSTALLER" ] || downloadInstaller
+  if [ -f "$INSTALLER" ]; then verifyExistingInstaller; else downloadInstaller; fi
   TARGET="$INSTALLER"
   # Optional extra installer flags.
   read -ra ARGS <<< "${INSTALLER_ARGS:-}"

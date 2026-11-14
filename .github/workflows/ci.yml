@@ -11,20 +11,27 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   script:
     name: Lint and dry-run
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install tools
         run: sudo apt-get update && sudo apt-get install -y shellcheck desktop-file-utils xdg-utils
 
       - name: Syntax and shellcheck
         run: |
-          bash -n run-navigation-updater.sh
-          shellcheck run-navigation-updater.sh
+          bash -n run-navigation-updater.sh copy-to-stick.sh
+          shellcheck run-navigation-updater.sh copy-to-stick.sh
 
       - name: Dry run without Steam takes the standalone-Proton path
         run: |
@@ -56,6 +63,19 @@ jobs:
           echo "$out"
           grep -q 'Navigation Updater.exe com.hyundai.update.nau://test$' <<<"$out"
 
+      - name: Dry run rejects arguments that are not browser links
+        run: |
+          export HOME="$RUNNER_TEMP/home5" && mkdir -p "$HOME"
+          ! DRY_RUN=1 ./run-navigation-updater.sh --evil
+          ! DRY_RUN=1 ./run-navigation-updater.sh /etc/passwd
+
+      - name: A tampered leftover installer is refused
+        run: |
+          export HOME="$RUNNER_TEMP/home6" && mkdir -p "$HOME"
+          cp run-navigation-updater.sh "$RUNNER_TEMP/"
+          echo tampered > "$RUNNER_TEMP/NavigationUpdaterInstaller.exe"
+          ! DRY_RUN=1 "$RUNNER_TEMP/run-navigation-updater.sh"
+
       - name: Desktop entry installs and registers link handlers
         run: |
           export HOME="$RUNNER_TEMP/home4" && mkdir -p "$HOME"
@@ -68,14 +88,17 @@ jobs:
   installer-link:
     name: Installer download and checksum
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Download from Hyundai and verify the pinned SHA-256
         run: |
           url="$(sed -n 's/^INSTALLER_URL="\(.*\)"$/\1/p' run-navigation-updater.sh)"
           sha="$(sed -n 's/^INSTALLER_SHA256="\(.*\)"$/\1/p' run-navigation-updater.sh)"
           test -n "$url" && test -n "$sha"
-          curl -fL --retry 3 -o "$RUNNER_TEMP/installer.exe" "$url"
+          curl -fL --proto '=https' --tlsv1.2 --retry 3 -o "$RUNNER_TEMP/installer.exe" "$url"
           echo "$sha  $RUNNER_TEMP/installer.exe" | sha256sum -c -
           file "$RUNNER_TEMP/installer.exe" | grep -q 'PE32 executable'
