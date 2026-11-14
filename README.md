@@ -57,7 +57,12 @@ needed) into `~/.local/share/hyundai-nau-proton`.
   removable drive (`/run/media/$USER/*`, `/media/$USER/*`) to a free Wine drive letter
   from `e:` upward and prints e.g. `USB: /run/media/you/HYUNDAI -> e:`. Mount the stick
   **before** starting the updater; if you plug it in later, restart the updater. Other
-  mount locations need a manual link:
+  mount locations need a manual link. Wine reports linked folders as fixed disks, but the
+  updater only offers *removable* drives, so the script also marks the letters `e:`-`y:`
+  as removable in the prefix registry (once; marker file `~/.local/share/hyundai-nau-prefix/.usb-drive-types`).
+  Wine's own auto-created `d:` stays a fixed disk and is ignored by the updater. To check:
+  `wmic logicaldisk get caption,drivetype,volumename` in the prefix should show `2` for the stick.
+  Manual link for other mount locations:
   `ln -s /mnt/stick ~/.local/share/hyundai-nau-prefix/pfx/dosdevices/e:`
 - Window problems: try another Proton version by editing the script.
 - Reset everything: delete the prefix folder and run the script again.

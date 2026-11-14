@@ -85,6 +85,21 @@ mapUsbDrives() {
   done
 }
 
+# Wine reports mounted folders as fixed disks (DriveType 3), while Windows reports USB
+# sticks as removable (2) and the updater only offers removable drives as a target.
+# Wine reports the "floppy" type as removable, so mark the letters used by
+# mapUsbDrives that way. One time per prefix, once the prefix exists.
+seedUsbDriveTypes() {
+  local marker="$PREFIX/.usb-drive-types"
+  local letter cmd=""
+  [ -d "$PREFIX/pfx" ] && [ ! -f "$marker" ] || return 0
+  for letter in {e..y}; do
+    cmd+="reg add HKLM\\Software\\Wine\\Drives /v $letter: /t REG_SZ /d floppy /f & "
+  done
+  { run "$PROTON" run cmd /c "${cmd}rem" >/dev/null 2>&1 && run touch "$marker"; } ||
+    echo "Warning: could not mark USB drive letters as removable" >&2
+}
+
 findSteamProton() {
   local steamRoot
   for steamRoot in "$HOME/.local/share/Steam" "$HOME/.steam/steam" "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam"; do
@@ -157,6 +172,7 @@ fi
 export STEAM_COMPAT_DATA_PATH="$PREFIX"
 export STEAM_COMPAT_CLIENT_INSTALL_PATH="$CLIENT_PATH"
 run mkdir -p "$PREFIX"
+seedUsbDriveTypes
 mapUsbDrives
 echo "Proton: $PROTON"
 echo "Target: $TARGET"
