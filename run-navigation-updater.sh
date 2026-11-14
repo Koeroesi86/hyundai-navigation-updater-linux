@@ -165,7 +165,7 @@ ARGS=("$@")
 if [ ! -f "$APP" ]; then
   [ -f "$INSTALLER" ] || downloadInstaller
   TARGET="$INSTALLER"
-  # Optional extra installer flags, e.g. for unattended installs (used by CI).
+  # Optional extra installer flags.
   read -ra ARGS <<< "${INSTALLER_ARGS:-}"
 fi
 

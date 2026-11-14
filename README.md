@@ -52,6 +52,20 @@ needed) into `~/.local/share/hyundai-nau-proton`.
 2. Plug the stick into the computer, open the updater (no login needed), let it download to the stick.
 3. Put the stick back in the car, Ready mode (or charging), run the update. Don't interrupt.
 
+## Gen5W cars (exFAT) and the manual copy
+Gen5W head units (e.g. 2019-23 Kona Electric) need an **exFAT** stick. Wine cannot
+report exFAT, so the updater tries to format the stick as NTFS and fails with a
+write-protection error. Let it download only, then copy the package by hand. The
+updater keeps it in `~/.local/share/hyundai-nau-prefix/pfx/drive_c/users/steamuser/Downloads/NaU/<vehicle folder>`:
+
+    cp -rv "<vehicle folder>/." /run/media/$USER/<stick>/    # trailing /. copies hidden files, to the stick root
+    sync
+    diff -rq "<vehicle folder>/" /run/media/$USER/<stick>/ && echo "COPY OK"
+
+The files go in the root of the stick, not a subfolder. This layout follows Hyundai's
+FAQ and has not been verified in a car. Do not select a stick that holds data in the
+updater's drive step, because it may try to format it.
+
 ## Troubleshooting
 - Updater can't see the stick: on every launch the script links each mounted
   removable drive (`/run/media/$USER/*`, `/media/$USER/*`) to a free Wine drive letter
