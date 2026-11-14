@@ -15,6 +15,7 @@
 #                                               add an app-menu entry and register
 #                                               the browser link handlers
 #
+# Set INSTALLER_ARGS="..." to pass flags to the installer (first run only).
 # Set DRY_RUN=1 to print what would happen without downloading or running.
 set -euo pipefail
 
@@ -120,7 +121,8 @@ ARGS=("$@")
 if [ ! -f "$APP" ]; then
   [ -f "$INSTALLER" ] || downloadInstaller
   TARGET="$INSTALLER"
-  ARGS=()
+  # Optional extra installer flags, e.g. for unattended installs (used by CI).
+  read -ra ARGS <<< "${INSTALLER_ARGS:-}"
 fi
 
 export STEAM_COMPAT_DATA_PATH="$PREFIX"

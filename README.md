@@ -49,7 +49,7 @@ needed) into `~/.local/share/hyundai-nau-proton`.
 
 ## Car workflow
 1. In the car: export device info to a FAT32 USB stick (>= 32 GB) from the Update menu.
-2. Plug the stick into the computer, log in to the updater, let it download to the stick.
+2. Plug the stick into the computer, open the updater (no login needed), let it download to the stick.
 3. Put the stick back in the car, Ready mode (or charging), run the update. Don't interrupt.
 
 ## Troubleshooting

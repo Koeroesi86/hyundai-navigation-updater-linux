@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1" # weekly: catches Hyundai changing or removing the installer
+  workflow_dispatch:
+    inputs:
+      full-run:
+        description: "Also run the experimental full install under Proton + Xvfb"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  script:
+    name: Lint and dry-run
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y shellcheck desktop-file-utils xdg-utils
+
+      - name: Syntax and shellcheck
+        run: |
+          bash -n run-navigation-updater.sh
+          shellcheck run-navigation-updater.sh
+
+      - name: Dry run without Steam takes the standalone-Proton path
+        run: |
+          export HOME="$RUNNER_TEMP/home" && mkdir -p "$HOME"
+          out="$(DRY_RUN=1 ./run-navigation-updater.sh)"
+          echo "$out"
+          grep -q 'steamcmd' <<<"$out"
+          grep -q 'Downloading Navigation Updater installer' <<<"$out"
+          grep -q 'NavigationUpdaterInstaller.exe$' <<<"$(grep '^Target:' <<<"$out")"
+
+      - name: Dry run with Steam's Proton present uses it
+        run: |
+          export HOME="$RUNNER_TEMP/home2"
+          proton="$HOME/.local/share/Steam/steamapps/common/Proton - Experimental"
+          mkdir -p "$proton" && printf '#!/bin/sh\n' > "$proton/proton" && chmod +x "$proton/proton"
+          out="$(DRY_RUN=1 ./run-navigation-updater.sh)"
+          echo "$out"
+          grep -q "^Proton: $proton/proton" <<<"$out"
+          ! grep -q steamcmd <<<"$out"
+
+      - name: Dry run forwards a browser link to an installed app
+        run: |
+          export HOME="$RUNNER_TEMP/home3"
+          proton="$HOME/.local/share/Steam/steamapps/common/Proton - Experimental"
+          app="$HOME/.local/share/hyundai-nau-prefix/pfx/drive_c/Program Files (x86)/Navigation Updater/package"
+          mkdir -p "$proton" "$app" && printf '#!/bin/sh\n' > "$proton/proton" && chmod +x "$proton/proton"
+          : > "$app/Navigation Updater.exe"
+          out="$(DRY_RUN=1 ./run-navigation-updater.sh 'com.hyundai.update.nau://test')"
+          echo "$out"
+          grep -q 'Navigation Updater.exe com.hyundai.update.nau://test$' <<<"$out"
+
+      - name: Desktop entry installs and registers link handlers
+        run: |
+          export HOME="$RUNNER_TEMP/home4" && mkdir -p "$HOME"
+          ./run-navigation-updater.sh --install-desktop
+          desktop-file-validate "$HOME/.local/share/applications/navigation-updater.desktop"
+          for s in hyundai genesis kia; do
+            test "$(xdg-mime query default "x-scheme-handler/com.$s.update.nau")" = navigation-updater.desktop
+          done
+
+  installer-link:
+    name: Installer download and checksum
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download from Hyundai and verify the pinned SHA-256
+        run: |
+          url="$(sed -n 's/^INSTALLER_URL="\(.*\)"$/\1/p' run-navigation-updater.sh)"
+          sha="$(sed -n 's/^INSTALLER_SHA256="\(.*\)"$/\1/p' run-navigation-updater.sh)"
+          test -n "$url" && test -n "$sha"
+          curl -fL --retry 3 -o "$RUNNER_TEMP/installer.exe" "$url"
+          echo "$sha  $RUNNER_TEMP/installer.exe" | sha256sum -c -
+          file "$RUNNER_TEMP/installer.exe" | grep -q 'PE32 executable'
+
+  full-run:
+    name: Full install under Proton (experimental)
+    if: github.event_name == 'workflow_dispatch' && inputs.full-run
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y xvfb lib32gcc-s1 lib32stdc++6
+
+      - name: Run the script (downloads Proton and the installer, installs unattended)
+        env:
+          INSTALLER_ARGS: --accept-licenses --default-answer --confirm-command install
+        run: |
+          export HOME="$RUNNER_TEMP/home" && mkdir -p "$HOME"
+          timeout 40m xvfb-run -a ./run-navigation-updater.sh || true
+          app="$HOME/.local/share/hyundai-nau-prefix/pfx/drive_c/Program Files (x86)/Navigation Updater/package/Navigation Updater.exe"
+          for _ in $(seq 1 60); do test -f "$app" && break; sleep 10; done
+          test -f "$app"
+
+      - name: Upload Proton log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prefix-logs
+          path: ${{ runner.temp }}/home/.local/share/hyundai-nau-prefix/*.log
+          if-no-files-found: ignore
