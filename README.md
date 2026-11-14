@@ -9,6 +9,10 @@
 > The installer is Hyundai's proprietary software and is **not** included in this
 > repository; the script downloads it from Hyundai's own servers.
 
+## License
+The scripts and documentation in this repository are under the [MIT License](LICENSE).
+This does not cover Hyundai's Navigation Updater, which remains Hyundai's property.
+
 ## Usage
     ./run-navigation-updater.sh
 
