@@ -55,12 +55,20 @@ needed) into `~/.local/share/hyundai-nau-proton`.
 ## Gen5W cars (exFAT) and the manual copy
 Gen5W head units (e.g. 2019-23 Kona Electric) need an **exFAT** stick. Wine cannot
 report exFAT, so the updater tries to format the stick as NTFS and fails with a
-write-protection error. Let it download only, then copy the package by hand. The
-updater keeps it in `~/.local/share/hyundai-nau-prefix/pfx/drive_c/users/steamuser/Downloads/NaU/<vehicle folder>`:
+write-protection error. Let it download only, then copy the package with the helper:
 
-    cp -rv "<vehicle folder>/." /run/media/$USER/<stick>/    # trailing /. copies hidden files, to the stick root
+    ./copy-to-stick.sh                       # auto-detects the vehicle folder and the mounted exFAT stick (menu if several)
+    ./copy-to-stick.sh /run/media/$USER/<stick> [<vehicle folder>]
+
+Only exFAT mounts are offered; pass the mount point explicitly to override. It shows source, target and free space, asks for confirmation (`YES=1` skips it,
+`DRY_RUN=1` only prints the plan), copies with `rsync` (or `cp`), runs `sync`, and
+verifies the result with `diff`. Files already on the stick, such as the car's
+device-info export, are left alone. By hand, the updater keeps the package in
+`~/.local/share/hyundai-nau-prefix/pfx/drive_c/users/steamuser/Downloads/NaU/<vehicle folder>`:
+
+    cp -rv "<vehicle folder>/." /run/media/$USER/<stick>/
     sync
-    diff -rq "<vehicle folder>/" /run/media/$USER/<stick>/ && echo "COPY OK"
+    diff -rq "<vehicle folder>/" /run/media/$USER/<stick>/
 
 The files go in the root of the stick, not a subfolder. This layout follows Hyundai's
 FAQ and has not been verified in a car. Do not select a stick that holds data in the
