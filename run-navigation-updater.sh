@@ -140,8 +140,9 @@ fi
 
 # Only browser links of the registered schemes may reach the app (no flags or paths).
 validateLinks() {
-  local pattern arg
-  pattern="^($(IFS='|'; echo "${SCHEMES[*]}" | sed 's/\./\\./g')):"
+  local joined pattern arg
+  joined="$(IFS='|'; echo "${SCHEMES[*]}")"
+  pattern="^(${joined//./\\.}):"
   for arg in "$@"; do
     [[ "$arg" =~ $pattern ]] || { echo "Refusing argument that is not a Navigation Updater link: $arg" >&2; exit 1; }
   done
