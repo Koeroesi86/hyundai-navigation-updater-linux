@@ -84,8 +84,16 @@ installStandaloneProton() {
   fi
   fetch="$(command -v steamcmd || echo "$STEAMCMD_DIR/steamcmd.sh")"
   echo "Downloading Proton Experimental (large download)..."
-  run "$fetch" +force_install_dir "$STANDALONE/steamapps/common/Proton - Experimental" \
-    +login anonymous +app_update "$PROTON_APPID" validate +quit
+  # steamcmd often fails its first run ("Missing configuration"); retrying works.
+  local attempt
+  for attempt in 1 2 3; do
+    run "$fetch" +force_install_dir "$STANDALONE/steamapps/common/Proton - Experimental" \
+      +login anonymous +app_update "$PROTON_APPID" validate +quit && return 0
+    echo "steamcmd attempt $attempt failed, retrying..." >&2
+    sleep 5
+  done
+  echo "Could not download Proton Experimental with steamcmd." >&2
+  exit 1
 }
 
 if [ "${1:-}" = "--install-desktop" ]; then
