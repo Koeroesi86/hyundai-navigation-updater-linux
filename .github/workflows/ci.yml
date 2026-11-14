@@ -113,10 +113,10 @@ jobs:
           app="$HOME/.local/share/hyundai-nau-prefix/pfx/drive_c/Program Files (x86)/Navigation Updater/package/Navigation Updater.exe"
           xvfb-run -a ./run-navigation-updater.sh > "$RUNNER_TEMP/run.log" 2>&1 &
           pid=$!
-          # The installer may not exit by itself: wait for the app, then stop everything.
+          # The launcher exits right after handing off to the real installer process,
+          # so wait for the app file itself (up to 20 min), then stop everything.
           for _ in $(seq 1 120); do
             test -f "$app" && break
-            kill -0 "$pid" 2>/dev/null || break
             sleep 10
           done
           sleep 5
