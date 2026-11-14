@@ -1,0 +1,3 @@
+# Hyundai's proprietary installer (downloaded by the script, never commit it)
+*.exe
+*.exe.part
