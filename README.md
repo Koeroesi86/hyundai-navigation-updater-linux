@@ -20,6 +20,12 @@ This does not cover Hyundai's Navigation Updater, which remains Hyundai's proper
   SHA-256, then runs it. The installer is a bootstrapper, so the launching process
   exits immediately and a second process shows the setup window.
 - Later runs: launches `Navigation Updater.exe` from the prefix.
+- `./run-navigation-updater.sh --install-desktop` (after the app is installed) adds a
+  "Navigation Updater" app-menu entry and registers the browser link handlers
+  `com.hyundai.update.nau://`, `com.genesis.update.nau://` and `com.kia.update.nau://`
+  (the schemes the app registers in its Wine registry). Links from the Hyundai
+  update website then open in the updater. A link passed as an argument
+  (`./run-navigation-updater.sh <url>`) is forwarded to the app.
 - `DRY_RUN=1 ./run-navigation-updater.sh` prints the steps without doing anything.
 - If the checksum no longer matches (Hyundai published a new version), the script
   stops. Inspect the `.part` file, then re-run with `SKIP_CHECKSUM=1` to accept it.
