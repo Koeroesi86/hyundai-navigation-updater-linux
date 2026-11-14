@@ -38,7 +38,7 @@ installDesktop() {
   local file="$dir/navigation-updater.desktop"
   local mimes
   mimes="$(printf 'x-scheme-handler/%s;' "${SCHEMES[@]}")"
-  run mkdir -p "$dir"
+  run mkdir -p "$dir" "$HOME/.config" # xdg-mime fails without ~/.config
   if [ "${DRY_RUN:-0}" = 1 ]; then
     echo "[dry-run] write $file (Exec=\"$SCRIPT_PATH\" %u, MimeType=$mimes)"
   else
@@ -88,6 +88,11 @@ installStandaloneProton() {
     +login anonymous +app_update "$PROTON_APPID" validate +quit
 }
 
+if [ "${1:-}" = "--install-desktop" ]; then
+  installDesktop
+  exit 0
+fi
+
 if steamRoot="$(findSteamProton)"; then
   PROTON="$steamRoot/steamapps/common/Proton - Experimental/proton"
   CLIENT_PATH="$steamRoot"
@@ -108,11 +113,6 @@ downloadInstaller() {
   rm -f "$INSTALLER.part"
   exit 1
 }
-
-if [ "${1:-}" = "--install-desktop" ]; then
-  installDesktop
-  exit 0
-fi
 
 # First run downloads (if needed) and installs; later runs launch the installed app.
 # Arguments (a browser link) are only passed to the app, never to the installer.

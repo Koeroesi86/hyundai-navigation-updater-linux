@@ -103,17 +103,31 @@ jobs:
       - name: Run the script (downloads Proton and the installer, installs unattended)
         env:
           INSTALLER_ARGS: --accept-licenses --default-answer --confirm-command install
+          PROTON_LOG: "1"
+        timeout-minutes: 30
         run: |
           export HOME="$RUNNER_TEMP/home" && mkdir -p "$HOME"
-          timeout 40m xvfb-run -a ./run-navigation-updater.sh || true
           app="$HOME/.local/share/hyundai-nau-prefix/pfx/drive_c/Program Files (x86)/Navigation Updater/package/Navigation Updater.exe"
-          for _ in $(seq 1 60); do test -f "$app" && break; sleep 10; done
+          xvfb-run -a ./run-navigation-updater.sh > "$RUNNER_TEMP/run.log" 2>&1 &
+          pid=$!
+          # The installer may not exit by itself: wait for the app, then stop everything.
+          for _ in $(seq 1 120); do
+            test -f "$app" && break
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 10
+          done
+          sleep 5
+          pkill -f wineserver || true
+          kill "$pid" 2>/dev/null || true
+          tail -n 50 "$RUNNER_TEMP/run.log"
           test -f "$app"
 
-      - name: Upload Proton log on failure
-        if: failure()
+      - name: Upload logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: prefix-logs
-          path: ${{ runner.temp }}/home/.local/share/hyundai-nau-prefix/*.log
+          name: full-run-logs
+          path: |
+            ${{ runner.temp }}/run.log
+            ${{ runner.temp }}/home/steam-*.log
           if-no-files-found: ignore
