@@ -1,8 +1,8 @@
-# Hyundai Navigation Updater on Linux (Proton)
+# Hyundai Navigation Updater on Linux (Wine / Proton)
 
 > **Disclaimer: unofficial and unsupported.** This project is not affiliated with,
 > endorsed by, or supported by Hyundai. It runs Hyundai's Windows-only Navigation
-> Updater under Proton/Wine, which Hyundai does not support. Updating a vehicle's
+> Updater under Wine/Proton, which Hyundai does not support. Updating a vehicle's
 > infotainment unit carries real risk (a failed or interrupted update can leave the
 > head unit unusable and may affect your warranty). Use at your own risk, with no
 > warranty of any kind. If in doubt, use a Windows or macOS machine or visit a dealer.
@@ -36,16 +36,26 @@ This does not cover Hyundai's Navigation Updater, which remains Hyundai's proper
   button may not work. This link may change or break without notice.)
 - Pinned SHA-256: 307f5a66f524bb8585fedebb37ac7a077dcf6b67fef8789995d714de598324cd
 
+## Runner (Wine by default, Proton as fallback)
+`RUNNER=auto` (default) picks, in order:
+1. **Proton, if the app is already installed in the Proton prefix** (so an earlier install keeps working; set `RUNNER=wine` to start a fresh Wine install instead).
+2. **Wine** from `PATH` (or `WINE=/path/to/wine`), in its own prefix `~/.local/share/hyundai-nau-wine-prefix` (`WINE_PREFIX_DIR=...` to use another one, e.g. a Lutris prefix).
+3. If Wine is missing and the script runs in a terminal, it asks whether to install it with `dnf`, `apt-get`, `pacman` or `zypper` (uses `sudo`). Declining, no terminal (e.g. launched from the menu) or an unknown package manager falls back to Proton.
+
+`RUNNER=wine` or `RUNNER=proton` forces one. The Wine prefix is 64-bit (`WINEARCH=win64`), which is what a Lutris setup with Wine-GE 8-26 used successfully. Wine runs with `WINEDEBUG=-all` unless you set it. The Wine path is untested end to end.
+
+**Menu icon:** during the install, Wine's menu builder extracts the updater's own icon into your icon theme (`~/.local/share/icons/hicolor/`; nothing is stored in this repo). After the install it is disabled with `WINEDLLOVERRIDES=winemenubuilder.exe=d`, so Wine adds no entries that bypass the script. Run `./run-navigation-updater.sh --install-desktop` once the install has finished: it uses the extracted icon file for its menu entry and deletes the Wine-generated entries for this prefix ("Navigation Updater" and its uninstaller). Without a Wine install it uses a generic icon. Until you run it, only Wine's own entry exists, which starts the app without the USB drive mapping.
+
 ## Proton
-The script looks for Proton Experimental in Steam (native or Flatpak). If none is
+Used when Wine is unavailable or `RUNNER=proton`. The script looks for Proton Experimental in Steam (native or Flatpak). If none is
 found, it downloads its own copy with `steamcmd` (anonymous login, no Steam account
 needed) into `~/.local/share/hyundai-nau-proton`.
 - `steamcmd` is 32-bit; on Fedora you may need `sudo dnf install glibc.i686 libstdc++.i686`.
 - The standalone path is untested end to end.
 
 ## Locations
-- Prefix: ~/.local/share/hyundai-nau-prefix
-- App: ~/.local/share/hyundai-nau-prefix/pfx/drive_c/Program Files (x86)/Navigation Updater/package/
+- Wine prefix: ~/.local/share/hyundai-nau-wine-prefix (app under `drive_c/Program Files (x86)/Navigation Updater/package/`)
+- Proton prefix: ~/.local/share/hyundai-nau-prefix (same path under `pfx/`)
 
 ## Car workflow
 1. In the car: export device info to a FAT32 USB stick (>= 32 GB) from the Update menu.
@@ -76,7 +86,7 @@ updater's drive step, because it may try to format it.
 
 ## Troubleshooting
 - Updater can't see the stick: on every launch the script links each mounted
-  removable drive (`/run/media/$USER/*`, `/media/$USER/*`) to a free Wine drive letter
+  USB drive (`/run/media/$USER/*`, `/media/$USER/*`, only those udev reports as `ID_BUS=usb`; other mounts are skipped) to a free Wine drive letter
   from `e:` upward and prints e.g. `USB: /run/media/you/HYUNDAI -> e:`. Mount the stick
   **before** starting the updater; if you plug it in later, restart the updater. Other
   mount locations need a manual link. Wine reports linked folders as fixed disks, but the
